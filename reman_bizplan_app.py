@@ -1,453 +1,309 @@
 """
-자동차 재제조 사업계획서 관리 앱
-실행 방법: streamlit run reman_bizplan_app.py
+자동차 부품 순환경제 혁신 인프라 구축 사업 관리 앱
+광주미래차모빌리티진흥원
+실행: streamlit run reman_bizplan_app.py
 """
 
 import streamlit as st
-import json
-import os
-from datetime import datetime
+import json, os
+from datetime import datetime, date
 
-# ─────────────────────────────────────────
-# 설정
-# ─────────────────────────────────────────
-DATA_FILE = "bizplan_data.json"
+DATA_FILE  = "app_data.json"
+UPLOAD_DIR = "uploaded_files"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 st.set_page_config(
-    page_title="ReMan BizPlan | 자동차 재제조 사업계획서",
-    page_icon="🔩",
-    layout="wide",
+    page_title="자동차 부품 순환경제 사업관리",
+    page_icon="🔩", layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ─────────────────────────────────────────
-# CSS 스타일
-# ─────────────────────────────────────────
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;900&display=swap');
-
-    html, body, [class*="css"] {
-        font-family: 'Noto Sans KR', sans-serif;
-    }
-    .main { background-color: #f8f9fb; }
-    .stApp { background-color: #f8f9fb; }
-
-    /* 헤더 타이틀 */
-    .app-header {
-        background: linear-gradient(135deg, #1e3a5f, #2563eb);
-        border-radius: 14px;
-        padding: 24px 32px;
-        margin-bottom: 24px;
-        text-align: center;
-        box-shadow: 0 4px 20px rgba(37,99,235,0.2);
-    }
-    .app-header h1 { color: #ffffff; margin: 0; font-size: 26px; font-weight: 900; }
-    .app-header p { color: rgba(255,255,255,0.7); margin: 4px 0 0; font-size: 13px; }
-
-    /* 카드 */
-    .plan-card {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 18px 22px;
-        margin-bottom: 12px;
-        box-shadow: 0 1px 6px rgba(0,0,0,0.06);
-        transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .plan-card:hover { border-color: #2563eb; box-shadow: 0 4px 16px rgba(37,99,235,0.1); }
-    .plan-card h3 { color: #1e3a5f; margin: 0 0 4px; font-size: 16px; }
-    .plan-card p { color: #94a3b8; margin: 0; font-size: 12px; }
-
-    /* 섹션 헤더 */
-    .section-header {
-        border-left: 4px solid #2563eb;
-        padding-left: 12px;
-        margin: 24px 0 16px;
-        color: #1e3a5f;
-        font-size: 16px;
-        font-weight: 800;
-    }
-
-    /* 진행률 텍스트 */
-    .progress-label {
-        color: #2563eb;
-        font-size: 13px;
-        font-weight: 700;
-        text-align: right;
-    }
-
-    /* 미리보기 */
-    .field-row { display: flex; gap: 16px; margin-bottom: 10px; font-size: 13px; }
-    .field-label { color: #94a3b8; min-width: 140px; flex-shrink: 0; }
-    .field-value { color: #1e293b; line-height: 1.6; white-space: pre-wrap; }
-
-    /* 사이드바 */
-    section[data-testid="stSidebar"] {
-        background-color: #ffffff !important;
-        border-right: 1px solid #e2e8f0;
-    }
-    section[data-testid="stSidebar"] .stButton button {
-        width: 100%;
-        text-align: left;
-        background: transparent;
-        border: 1px solid transparent;
-        color: #64748b;
-        font-size: 13px;
-        padding: 8px 12px;
-        border-radius: 8px;
-        margin-bottom: 2px;
-    }
-    section[data-testid="stSidebar"] .stButton button:hover {
-        border-color: #2563eb;
-        color: #2563eb;
-        background: rgba(37,99,235,0.06);
-    }
-
-    /* 버튼 */
-    .stButton button {
-        border-radius: 8px;
-        font-weight: 600;
-        font-size: 13px;
-    }
-    div[data-testid="stTextInput"] input,
-    div[data-testid="stTextArea"] textarea {
-        background-color: #ffffff !important;
-        border: 1px solid #e2e8f0 !important;
-        color: #1e293b !important;
-        border-radius: 8px;
-    }
-    div[data-testid="stTextInput"] input:focus,
-    div[data-testid="stTextArea"] textarea:focus {
-        border-color: #2563eb !important;
-        box-shadow: 0 0 0 3px rgba(37,99,235,0.1) !important;
-    }
-
-    /* 성공/경고 메시지 */
-    .stSuccess, .stInfo { border-radius: 8px; }
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap');
+html,body,[class*="css"]{font-family:'Noto Sans KR',sans-serif;}
+.stApp{background:#f4f6fb;}
+.main-header{background:linear-gradient(135deg,#1e3a5f,#2563eb);border-radius:14px;
+  padding:20px 32px;margin-bottom:20px;text-align:center;box-shadow:0 4px 20px rgba(37,99,235,0.18);}
+.main-header h1{color:#fff;margin:0;font-size:20px;font-weight:900;}
+.main-header p{color:rgba(255,255,255,0.75);margin:4px 0 0;font-size:12px;}
+.sec-title{border-left:4px solid #2563eb;padding-left:12px;color:#1e3a5f;
+  font-size:15px;font-weight:800;margin:0 0 14px;}
+.file-row{display:flex;align-items:center;gap:12px;padding:10px 14px;
+  background:#fff;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:8px;}
+.file-name{font-weight:600;font-size:13px;color:#1e293b;}
+.file-meta{font-size:11px;color:#94a3b8;margin-top:2px;}
+.tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;margin-right:4px;}
+.tag-blue{background:#dbeafe;color:#1d4ed8;}
+.tag-green{background:#dcfce7;color:#15803d;}
+.tag-orange{background:#ffedd5;color:#c2410c;}
+.tag-gray{background:#f1f5f9;color:#64748b;}
+.sched-row{display:flex;gap:10px;align-items:flex-start;padding:12px 16px;
+  background:#fff;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:8px;}
+.sched-date{font-size:11px;font-weight:700;color:#2563eb;min-width:80px;padding-top:2px;}
+.sched-title{font-size:13px;font-weight:700;color:#1e293b;}
+.sched-desc{font-size:12px;color:#64748b;margin-top:2px;}
+.badge-d{padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;}
+.d-urgent{background:#fee2e2;color:#dc2626;}
+.d-soon{background:#fef3c7;color:#d97706;}
+.d-ok{background:#dcfce7;color:#16a34a;}
+.d-done{background:#f1f5f9;color:#94a3b8;}
+section[data-testid="stSidebar"]{background:#fff!important;border-right:1px solid #e2e8f0;}
+div[data-testid="stTextInput"] input,div[data-testid="stTextArea"] textarea{
+  background:#fff!important;border:1px solid #e2e8f0!important;color:#1e293b!important;border-radius:8px;}
 </style>
 """, unsafe_allow_html=True)
 
-# ─────────────────────────────────────────
-# 데이터 구조
-# ─────────────────────────────────────────
-SECTIONS = [
-    ("overview",   "🏭 사업 개요"),
-    ("market",     "📊 시장 분석"),
-    ("product",    "⚙️ 제품/서비스"),
-    ("operation",  "🔧 운영 계획"),
-    ("finance",    "💰 재무 계획"),
-    ("risk",       "⚠️ 리스크 관리"),
-]
-
-FIELD_LABELS = {
-    "overview": {
-        "companyName": "회사명",
-        "ceo": "대표자명",
-        "founded": "설립일",
-        "address": "소재지",
-        "bizType": "업종",
-        "capital": "자본금(원)",
-        "employees": "임직원 수",
-        "vision": "비전",
-        "mission": "미션",
-        "summary": "사업 요약",
-    },
-    "market": {
-        "targetMarket": "목표 시장",
-        "marketSize": "시장 규모",
-        "competitors": "경쟁사 현황",
-        "advantage": "경쟁 우위",
-        "trend": "시장 트렌드",
-        "strategy": "시장 진입 전략",
-    },
-    "product": {
-        "mainProducts": "주요 재제조 품목",
-        "remanProcess": "재제조 공정 개요",
-        "quality": "품질 관리 방안",
-        "certification": "보유/취득 예정 인증",
-        "procurement": "부품 조달 계획",
-        "technology": "핵심 기술 및 노하우",
-    },
-    "operation": {
-        "facility": "생산 시설 현황",
-        "equipment": "주요 설비 목록",
-        "workforce": "인력 구성 계획",
-        "process": "생산 프로세스",
-        "partner": "협력사 현황",
-        "logistics": "물류/배송 계획",
-    },
-    "finance": {
-        "investment": "초기 투자 비용(원)",
-        "revenue1": "1년차 예상 매출(원)",
-        "revenue2": "2년차 예상 매출(원)",
-        "revenue3": "3년차 예상 매출(원)",
-        "cost": "주요 원가 구조",
-        "profit": "예상 영업이익률(%)",
-        "funding": "자금 조달 계획",
-        "breakeven": "손익분기점 분석",
-    },
-    "risk": {
-        "supplyRisk": "부품 공급망 리스크",
-        "qualityRisk": "품질/불량 리스크",
-        "marketRisk": "시장/수요 리스크",
-        "regulatoryRisk": "규제/인증 리스크",
-        "mitigationPlan": "리스크 대응 전략",
-    },
-}
-
-LARGE_FIELDS = {
-    "summary", "vision", "mission", "strategy", "advantage", "trend",
-    "remanProcess", "quality", "technology", "process", "partner",
-    "cost", "funding", "breakeven", "mitigationPlan", "procurement",
-    "logistics", "workforce", "competitors",
-}
-
-EMPTY_PLAN = {sec: {f: ("자동차 부품 재제조업" if f == "bizType" else "") for f in FIELD_LABELS[sec]} for sec, _ in SECTIONS}
-
-
-# ─────────────────────────────────────────
-# 파일 저장/불러오기
-# ─────────────────────────────────────────
-def load_data():
+def load():
     if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "r", encoding="utf-8") as f:
+        with open(DATA_FILE,"r",encoding="utf-8") as f:
             return json.load(f)
-    return []
+    return {"files":[],"schedules":[]}
 
-def save_data(plans):
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(plans, f, ensure_ascii=False, indent=2)
+def save(data):
+    with open(DATA_FILE,"w",encoding="utf-8") as f:
+        json.dump(data,f,ensure_ascii=False,indent=2)
 
+if "data" not in st.session_state: st.session_state.data = load()
+if "page" not in st.session_state: st.session_state.page = "dashboard"
+data = st.session_state.data
 
-# ─────────────────────────────────────────
-# Session State 초기화
-# ─────────────────────────────────────────
-if "plans" not in st.session_state:
-    st.session_state.plans = load_data()
-if "view" not in st.session_state:
-    st.session_state.view = "list"       # list | edit | preview
-if "current_id" not in st.session_state:
-    st.session_state.current_id = None
-if "form_data" not in st.session_state:
-    st.session_state.form_data = {s: dict(v) for s, v in EMPTY_PLAN.items()}
-if "active_section" not in st.session_state:
-    st.session_state.active_section = "overview"
+st.markdown("""<div class="main-header">
+  <h1>🔩 자동차 부품 순환경제 혁신 인프라 구축사업</h1>
+  <p>광주미래차모빌리티진흥원 · 사업관리 시스템 · 2026~2030</p>
+</div>""", unsafe_allow_html=True)
 
-
-# ─────────────────────────────────────────
-# 완성도 계산
-# ─────────────────────────────────────────
-def completion_rate(data):
-    total = filled = 0
-    for sec in data.values():
-        for v in sec.values():
-            total += 1
-            if str(v).strip():
-                filled += 1
-    return int(filled / total * 100) if total else 0
-
-
-# ─────────────────────────────────────────
-# 헤더
-# ─────────────────────────────────────────
-st.markdown("""
-<div class="app-header">
-  <h1>🔩 ReMan BizPlan</h1>
-  <p>자동차 재제조 사업계획서 작성 & 관리 시스템</p>
-</div>
-""", unsafe_allow_html=True)
-
-
-# ─────────────────────────────────────────
-# 사이드바 – 네비게이션
-# ─────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### 📋 메뉴")
+    st.markdown("### 🗂️ 메뉴")
+    for key, label in [("dashboard","🏠 대시보드"),("files","📁 자료 관리"),("schedule","📅 일정 관리")]:
+        if st.button(label, key=f"m_{key}", use_container_width=True,
+                     type="primary" if st.session_state.page==key else "secondary"):
+            st.session_state.page=key; st.rerun()
+    st.markdown("---")
+    st.markdown('<div style="color:#94a3b8;font-size:11px;text-align:center;">ReMan BizPlan v2.0<br>광주미래차모빌리티진흥원</div>',unsafe_allow_html=True)
 
-    if st.button("🏠  사업계획서 목록", key="nav_list"):
-        st.session_state.view = "list"
-        st.rerun()
+today = date.today()
 
-    if st.button("➕  새 사업계획서 작성", key="nav_new"):
-        st.session_state.form_data = {s: dict(v) for s, v in EMPTY_PLAN.items()}
-        st.session_state.current_id = None
-        st.session_state.active_section = "overview"
-        st.session_state.view = "edit"
-        st.rerun()
+# ══════════════════ 대시보드 ══════════════════
+if st.session_state.page == "dashboard":
+    st.markdown('<div class="sec-title">📊 사업 현황 요약</div>',unsafe_allow_html=True)
+    c1,c2,c3,c4 = st.columns(4)
+    upcoming = sum(1 for s in data["schedules"] if s.get("date") and not s.get("done")
+                   and 0 <= (date.fromisoformat(s["date"])-today).days <= 7)
+    overdue  = sum(1 for s in data["schedules"] if s.get("date") and not s.get("done")
+                   and date.fromisoformat(s["date"]) < today)
+    with c1: st.metric("📁 등록 자료", f"{len(data['files'])}건")
+    with c2: st.metric("📅 전체 일정", f"{len(data['schedules'])}건")
+    with c3: st.metric("⚡ 7일 내 일정", f"{upcoming}건")
+    with c4: st.metric("🔴 기한 초과", f"{overdue}건")
+    st.markdown("---")
 
-    if st.session_state.view == "edit":
-        st.markdown("---")
-        st.markdown("### 📑 섹션 이동")
-        rate = completion_rate(st.session_state.form_data)
-        st.progress(rate / 100)
-        st.markdown(f'<div class="progress-label">✅ {rate}% 완성</div>', unsafe_allow_html=True)
-        st.markdown("")
-        for sec_id, sec_label in SECTIONS:
-            if st.button(sec_label, key=f"nav_{sec_id}"):
-                st.session_state.active_section = sec_id
-                st.rerun()
+    col_l, col_r = st.columns(2)
+    with col_l:
+        st.markdown('<div class="sec-title">📁 최근 등록 자료</div>',unsafe_allow_html=True)
+        recent = sorted(data["files"],key=lambda x:x.get("uploaded_at",""),reverse=True)[:5]
+        if not recent: st.info("등록된 자료가 없습니다.")
+        for f in recent:
+            ext = f["name"].split(".")[-1].upper() if "." in f["name"] else "FILE"
+            tc = "tag-blue" if ext=="PDF" else "tag-green" if ext in ["XLSX","XLS"] else "tag-orange" if ext in ["DOCX","DOC","HWP"] else "tag-gray"
+            st.markdown(f"""<div class="file-row"><div style="font-size:20px;">📄</div><div>
+              <div class="file-name">{f['name']}</div>
+              <div class="file-meta"><span class="tag {tc}">{ext}</span>{f.get('category','기타')} · {f.get('uploaded_at','')[:10]}</div>
+            </div></div>""",unsafe_allow_html=True)
+
+    with col_r:
+        st.markdown('<div class="sec-title">📅 다가오는 일정</div>',unsafe_allow_html=True)
+        ups = sorted([s for s in data["schedules"] if s.get("date") and not s.get("done")],key=lambda x:x["date"])[:6]
+        if not ups: st.info("등록된 일정이 없습니다.")
+        for s in ups:
+            d = date.fromisoformat(s["date"])
+            diff = (d-today).days
+            if diff<0: badge=f'<span class="badge-d d-urgent">D+{abs(diff)} 초과</span>'
+            elif diff==0: badge='<span class="badge-d d-urgent">D-Day</span>'
+            elif diff<=7: badge=f'<span class="badge-d d-soon">D-{diff}</span>'
+            else: badge=f'<span class="badge-d d-ok">D-{diff}</span>'
+            st.markdown(f"""<div class="sched-row">
+              <div class="sched-date">{s['date']}</div>
+              <div><div class="sched-title">{s['title']} {badge}</div>
+              <div class="sched-desc">{s.get('description','')[:60]}</div></div>
+            </div>""",unsafe_allow_html=True)
 
     st.markdown("---")
-    st.markdown('<div style="color:#94a3b8;font-size:11px;text-align:center;">ReMan BizPlan v1.0<br>자동차 재제조 전문 관리</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sec-title">📌 사업 기본 정보</div>',unsafe_allow_html=True)
+    i1,i2 = st.columns(2)
+    def info_row(k,v):
+        return f'<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:13px;"><span style="color:#94a3b8;min-width:90px;">{k}</span><span style="color:#1e293b;font-weight:600;">{v}</span></div>'
+    with i1:
+        for k,v in [("사업명","자동차 부품 순환경제 혁신 인프라 구축 사업"),("사업기간","2026~2030년 (5년간)"),("주관기관","광주미래차모빌리티진흥원"),("참여기관","한국생산기술연구원 광주본부"),("전문기관","KIAT")]:
+            st.markdown(info_row(k,v),unsafe_allow_html=True)
+    with i2:
+        for k,v in [("총사업비","450억원"),("국비","99억원 (22%)"),("시비","80억원 (17.8%)"),("민자","271억원 (60.2%)"),("사업위치","광주 남구 에너지밸리산단")]:
+            st.markdown(info_row(k,v),unsafe_allow_html=True)
 
+# ══════════════════ 자료 관리 ══════════════════
+elif st.session_state.page == "files":
+    st.markdown('<div class="sec-title">📁 자료 관리</div>',unsafe_allow_html=True)
 
-# ─────────────────────────────────────────
-# 목록 화면
-# ─────────────────────────────────────────
-if st.session_state.view == "list":
-    plans = st.session_state.plans
-
-    if not plans:
-        st.info("📋 아직 작성된 사업계획서가 없습니다. 사이드바에서 '새 사업계획서 작성'을 클릭하세요.")
-    else:
-        st.markdown(f"**총 {len(plans)}개의 사업계획서**")
-        for plan in plans:
-            with st.container():
-                col1, col2, col3 = st.columns([6, 1, 1])
-                with col1:
-                    rate = completion_rate(plan["data"])
-                    st.markdown(f"""
-                    <div class="plan-card">
-                        <h3>🏭 {plan['name']}</h3>
-                        <p>생성: {plan['createdAt']} &nbsp;·&nbsp; 수정: {plan['updatedAt']} &nbsp;·&nbsp; 완성도: {rate}%</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                with col2:
-                    if st.button("✏️ 편집", key=f"edit_{plan['id']}"):
-                        st.session_state.form_data = {s: dict(plan["data"].get(s, {})) for s, _ in SECTIONS}
-                        st.session_state.current_id = plan["id"]
-                        st.session_state.active_section = "overview"
-                        st.session_state.view = "edit"
-                        st.rerun()
-                with col3:
-                    if st.button("📄 보기", key=f"view_{plan['id']}"):
-                        st.session_state.form_data = {s: dict(plan["data"].get(s, {})) for s, _ in SECTIONS}
-                        st.session_state.current_id = plan["id"]
-                        st.session_state.view = "preview"
-                        st.rerun()
-
-
-# ─────────────────────────────────────────
-# 편집 화면
-# ─────────────────────────────────────────
-elif st.session_state.view == "edit":
-    sec_id = st.session_state.active_section
-    sec_label = dict(SECTIONS)[sec_id]
-    fields = FIELD_LABELS[sec_id]
-    data = st.session_state.form_data
-
-    st.markdown(f'<div class="section-header">{sec_label}</div>', unsafe_allow_html=True)
-    st.markdown('<div style="color:#94a3b8;font-size:12px;margin-bottom:20px;">각 항목을 입력하세요. 입력 후 저장 버튼을 누르세요.</div>', unsafe_allow_html=True)
-
-    updated = {}
-    for field, label in fields.items():
-        current_val = data[sec_id].get(field, "")
-        if field in LARGE_FIELDS:
-            val = st.text_area(label, value=current_val, height=100, key=f"field_{sec_id}_{field}")
-        else:
-            val = st.text_input(label, value=current_val, key=f"field_{sec_id}_{field}")
-        updated[field] = val
-
-    # 폼 데이터 업데이트
-    st.session_state.form_data[sec_id] = updated
-
-    st.markdown("---")
-    col1, col2, col3, col4 = st.columns([2, 2, 2, 2])
-
-    sec_ids = [s for s, _ in SECTIONS]
-    cur_idx = sec_ids.index(sec_id)
-
-    with col1:
-        if cur_idx > 0:
-            if st.button("← 이전 섹션"):
-                st.session_state.active_section = sec_ids[cur_idx - 1]
-                st.rerun()
-
-    with col2:
-        if cur_idx < len(sec_ids) - 1:
-            if st.button("다음 섹션 →"):
-                st.session_state.active_section = sec_ids[cur_idx + 1]
-                st.rerun()
-
-    with col3:
-        if st.button("💾 저장", type="primary"):
-            name = st.session_state.form_data["overview"].get("companyName") or "미입력 사업계획서"
-            now = datetime.now().strftime("%Y-%m-%d")
-            plans = st.session_state.plans
-            if st.session_state.current_id:
-                for p in plans:
-                    if p["id"] == st.session_state.current_id:
-                        p["name"] = name
-                        p["updatedAt"] = now
-                        p["data"] = {s: dict(v) for s, v in st.session_state.form_data.items()}
-                        break
-            else:
-                new_id = int(datetime.now().timestamp() * 1000)
-                plans.append({"id": new_id, "name": name, "createdAt": now, "updatedAt": now,
-                               "data": {s: dict(v) for s, v in st.session_state.form_data.items()}})
-                st.session_state.current_id = new_id
-            st.session_state.plans = plans
-            save_data(plans)
-            st.success("✅ 저장되었습니다!")
-
-    with col4:
-        if st.button("📄 미리보기"):
-            st.session_state.view = "preview"
-            st.rerun()
-
-
-# ─────────────────────────────────────────
-# 미리보기 화면
-# ─────────────────────────────────────────
-elif st.session_state.view == "preview":
-    data = st.session_state.form_data
-    company = data["overview"].get("companyName") or "회사명 미입력"
-    ceo = data["overview"].get("ceo", "")
-    now_str = datetime.now().strftime("%Y년 %m월 %d일")
-
-    col_btn1, col_btn2 = st.columns([1, 1])
-    with col_btn1:
-        if st.button("✏️ 편집으로 돌아가기"):
-            st.session_state.view = "edit"
-            st.rerun()
-    with col_btn2:
-        if st.button("🏠 목록으로"):
-            st.session_state.view = "list"
+    with st.expander("➕ 새 자료 등록", expanded=True):
+        u1,u2 = st.columns([2,1])
+        with u1:
+            uploaded = st.file_uploader("파일 선택 (PDF, HWP, DOCX, XLSX, PPT, 이미지 등)",
+                accept_multiple_files=True,
+                type=["pdf","hwp","docx","doc","xlsx","xls","pptx","ppt","png","jpg","jpeg","txt","csv"])
+        with u2:
+            category = st.selectbox("분류",["공모/공고","협약서","사업계획서","예산/정산",
+                "장비 관련","기업지원","SPC 설립","회의자료","보고서","인력양성","기타"])
+            memo = st.text_input("메모 (선택)")
+        if st.button("📤 업로드", type="primary") and uploaded:
+            for f in uploaded:
+                sp = os.path.join(UPLOAD_DIR, f.name)
+                with open(sp,"wb") as out: out.write(f.getbuffer())
+                data["files"].append({"id":int(datetime.now().timestamp()*1000),
+                    "name":f.name,"size":f.size,"category":category,
+                    "memo":memo,"path":sp,"uploaded_at":datetime.now().isoformat()})
+            save(data)
+            st.success(f"✅ {len(uploaded)}개 파일 등록 완료!")
             st.rerun()
 
     st.markdown("---")
+    f1,f2 = st.columns(2)
+    with f1: fc = st.selectbox("분류 필터",["전체","공모/공고","협약서","사업계획서","예산/정산","장비 관련","기업지원","SPC 설립","회의자료","보고서","인력양성","기타"])
+    with f2: fk = st.text_input("🔍 파일명 검색")
 
-    # 표지
-    st.markdown(f"""
-    <div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);border-radius:16px;
-                padding:40px;text-align:center;margin-bottom:28px;box-shadow:0 4px 20px rgba(37,99,235,0.2);">
-        <div style="font-size:12px;color:rgba(255,255,255,0.7);letter-spacing:0.2em;margin-bottom:8px;">BUSINESS PLAN</div>
-        <h1 style="color:#ffffff;font-size:28px;margin:0 0 8px;font-weight:900;">{company}</h1>
-        <div style="color:rgba(255,255,255,0.75);font-size:13px;">자동차 부품 재제조 사업계획서</div>
-        {"<div style='color:rgba(255,255,255,0.9);font-size:13px;margin-top:8px;'>대표자: " + ceo + "</div>" if ceo else ""}
-        <div style="color:rgba(255,255,255,0.5);font-size:11px;margin-top:12px;">{now_str} 기준</div>
-    </div>
-    """, unsafe_allow_html=True)
+    flist = data["files"]
+    if fc!="전체": flist=[f for f in flist if f.get("category")==fc]
+    if fk: flist=[f for f in flist if fk.lower() in f["name"].lower()]
+    flist=sorted(flist,key=lambda x:x.get("uploaded_at",""),reverse=True)
 
-    # 각 섹션 출력
-    for sec_id, sec_label in SECTIONS:
-        sec_data = data.get(sec_id, {})
-        fields = FIELD_LABELS[sec_id]
-        has_content = any(str(v).strip() for v in sec_data.values())
-        if not has_content:
-            continue
+    st.markdown(f"**총 {len(flist)}건**")
+    if not flist: st.info("등록된 자료가 없습니다.")
+    for f in flist:
+        ext = f["name"].split(".")[-1].upper() if "." in f["name"] else "FILE"
+        skb = f.get("size",0)//1024
+        tc = "tag-blue" if ext=="PDF" else "tag-green" if ext in ["XLSX","XLS"] else "tag-orange" if ext in ["DOCX","DOC","HWP"] else "tag-gray"
+        rc1,rc2,rc3 = st.columns([6,1,1])
+        with rc1:
+            st.markdown(f"""<div class="file-row"><div style="font-size:20px;">📄</div><div class="file-info">
+              <div class="file-name">{f['name']}</div>
+              <div class="file-meta"><span class="tag {tc}">{ext}</span><span class="tag tag-gray">{f.get('category','')}</span>
+              {skb}KB · {f.get('uploaded_at','')[:10]}{(' · '+f['memo']) if f.get('memo') else ''}</div>
+            </div></div>""",unsafe_allow_html=True)
+        with rc2:
+            if os.path.exists(f.get("path","")):
+                with open(f["path"],"rb") as fp:
+                    st.download_button("⬇️",fp.read(),file_name=f["name"],key=f"dl_{f['id']}")
+        with rc3:
+            if st.button("🗑️",key=f"df_{f['id']}"):
+                if os.path.exists(f.get("path","")): os.remove(f["path"])
+                data["files"]=[x for x in data["files"] if x["id"]!=f["id"]]
+                save(data); st.rerun()
 
-        st.markdown(f'<div class="section-header">{sec_label}</div>', unsafe_allow_html=True)
-        rows_html = ""
-        for field, label in fields.items():
-            val = sec_data.get(field, "")
-            if not str(val).strip():
-                continue
-            rows_html += f'<div class="field-row"><span class="field-label">{label}</span><span class="field-value">{val}</span></div>'
+# ══════════════════ 일정 관리 ══════════════════
+elif st.session_state.page == "schedule":
+    st.markdown('<div class="sec-title">📅 일정 관리</div>',unsafe_allow_html=True)
 
-        st.markdown(f'<div style="padding-left:16px;">{rows_html}</div>', unsafe_allow_html=True)
-        st.markdown("")
+    with st.expander("➕ 새 일정 등록", expanded=False):
+        sc1,sc2,sc3 = st.columns([2,1,1])
+        with sc1:
+            st_title = st.text_input("일정 제목 *")
+            st_desc  = st.text_area("상세 내용",height=80)
+        with sc2:
+            st_date = st.date_input("날짜 *",value=today)
+            st_cat  = st.selectbox("구분",["공모/심의","협약","장비구축","SPC설립","기업지원","보고/정산","회의","교육","기타"])
+        with sc3:
+            st_year = st.selectbox("사업연도",["2026","2027","2028","2029","2030","해당없음"])
+            st_imp  = st.selectbox("중요도",["높음 🔴","보통 🟡","낮음 🟢"])
+        if st.button("📌 일정 등록",type="primary"):
+            if st_title:
+                data["schedules"].append({"id":int(datetime.now().timestamp()*1000),
+                    "title":st_title,"description":st_desc,"date":st_date.isoformat(),
+                    "category":st_cat,"year":st_year,"importance":st_imp,
+                    "done":False,"created_at":datetime.now().isoformat()})
+                save(data); st.success("✅ 일정 등록 완료!"); st.rerun()
+            else: st.warning("일정 제목을 입력해주세요.")
 
     st.markdown("---")
-    st.markdown(f'<div style="text-align:center;color:#94a3b8;font-size:11px;">ReMan BizPlan · 자동차 재제조 사업계획서 관리 시스템</div>', unsafe_allow_html=True)
+    ff1,ff2,ff3,ff4 = st.columns(4)
+    with ff1: fy=st.selectbox("사업연도",["전체","2026","2027","2028","2029","2030","해당없음"])
+    with ff2: fcat=st.selectbox("구분",["전체","공모/심의","협약","장비구축","SPC설립","기업지원","보고/정산","회의","교육","기타"])
+    with ff3: fst=st.selectbox("상태",["전체","미완료","완료"])
+    with ff4: fsk=st.text_input("🔍 검색")
+
+    sl = data["schedules"]
+    if fy!="전체": sl=[s for s in sl if s.get("year")==fy]
+    if fcat!="전체": sl=[s for s in sl if s.get("category")==fcat]
+    if fst=="미완료": sl=[s for s in sl if not s.get("done")]
+    if fst=="완료": sl=[s for s in sl if s.get("done")]
+    if fsk: sl=[s for s in sl if fsk in s.get("title","") or fsk in s.get("description","")]
+    sl=sorted(sl,key=lambda x:x.get("date",""))
+
+    st.markdown(f"**총 {len(sl)}건**")
+    tab1,tab2,tab3 = st.tabs(["📋 목록","📆 연차별","⚡ D-Day 현황"])
+
+    with tab1:
+        if not sl: st.info("등록된 일정이 없습니다.")
+        for s in sl:
+            d=date.fromisoformat(s["date"]) if s.get("date") else None
+            diff=(d-today).days if d else None
+            if s.get("done"): badge='<span class="badge-d d-done">✅ 완료</span>'
+            elif diff is None: badge=""
+            elif diff<0: badge=f'<span class="badge-d d-urgent">D+{abs(diff)} 초과</span>'
+            elif diff==0: badge='<span class="badge-d d-urgent">🔔 D-Day</span>'
+            elif diff<=7: badge=f'<span class="badge-d d-soon">D-{diff}</span>'
+            elif diff<=30: badge=f'<span class="badge-d d-ok">D-{diff}</span>'
+            else: badge=f'<span class="badge-d" style="background:#f1f5f9;color:#64748b;">D-{diff}</span>'
+            ic="#dc2626" if "높음" in s.get("importance","") else "#d97706" if "보통" in s.get("importance","") else "#16a34a"
+            tc1,tc2,tc3=st.columns([7,1,1])
+            with tc1:
+                st.markdown(f"""<div class="sched-row" style="{'opacity:0.5' if s.get('done') else ''}">
+                  <div class="sched-date">{s.get('date','')}</div>
+                  <div><div class="sched-title"><span style="color:{ic};margin-right:4px;">●</span>{s['title']} {badge}
+                    <span class="tag tag-gray" style="font-size:10px;">{s.get('category','')}</span>
+                    <span class="tag tag-blue" style="font-size:10px;">{s.get('year','')}</span></div>
+                  <div class="sched-desc">{s.get('description','')[:80]}</div></div>
+                </div>""",unsafe_allow_html=True)
+            with tc2:
+                if st.button("↩️" if s.get("done") else "✅",key=f"done_{s['id']}"):
+                    for item in data["schedules"]:
+                        if item["id"]==s["id"]: item["done"]=not item.get("done",False)
+                    save(data); st.rerun()
+            with tc3:
+                if st.button("🗑️",key=f"ds_{s['id']}"):
+                    data["schedules"]=[x for x in data["schedules"] if x["id"]!=s["id"]]
+                    save(data); st.rerun()
+
+    with tab2:
+        for yr in ["2026","2027","2028","2029","2030"]:
+            ys=[s for s in data["schedules"] if s.get("year")==yr]
+            dc=sum(1 for s in ys if s.get("done"))
+            pct=int(dc/len(ys)*100) if ys else 0
+            st.markdown(f"""<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;
+              background:#fff;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:6px;">
+              <span style="font-weight:800;color:#1e3a5f;min-width:55px;">{yr}년</span>
+              <span style="font-size:12px;color:#64748b;">총 {len(ys)}건 · 완료 {dc}건</span>
+              <div style="flex:1;background:#e2e8f0;border-radius:4px;height:6px;">
+                <div style="width:{pct}%;background:#2563eb;border-radius:4px;height:6px;"></div></div>
+              <span style="font-size:11px;color:#2563eb;font-weight:700;">{pct}%</span>
+            </div>""",unsafe_allow_html=True)
+            for s in sorted(ys,key=lambda x:x.get("date","")):
+                chk="✅" if s.get("done") else "⬜"
+                color="#94a3b8" if s.get("done") else "#1e293b"
+                st.markdown(f'<div style="padding:3px 0 3px 24px;font-size:12px;color:{color};">{chk} {s.get("date","")} &nbsp; {s["title"]} <span style="color:#94a3b8;">({s.get("category","")})</span></div>',unsafe_allow_html=True)
+
+    with tab3:
+        urgent=[s for s in data["schedules"] if not s.get("done") and s.get("date")
+                and (date.fromisoformat(s["date"])-today).days<=30]
+        urgent=sorted(urgent,key=lambda x:x["date"])
+        if not urgent: st.success("🎉 30일 내 촉박한 일정이 없습니다!")
+        for s in urgent:
+            d=date.fromisoformat(s["date"]); diff=(d-today).days
+            if diff<0: bg="#fee2e2";lb=f"⚠️ {abs(diff)}일 초과"
+            elif diff==0: bg="#fee2e2";lb="🔔 오늘"
+            elif diff<=7: bg="#fef3c7";lb=f"⚡ {diff}일 후"
+            else: bg="#dcfce7";lb=f"📌 {diff}일 후"
+            st.markdown(f"""<div style="background:{bg};border-radius:10px;padding:12px 16px;
+              margin-bottom:8px;display:flex;gap:12px;align-items:center;">
+              <span style="font-size:12px;font-weight:700;min-width:80px;">{lb}</span>
+              <div><div style="font-weight:700;font-size:13px;">{s['title']}</div>
+              <div style="font-size:11px;color:#64748b;">{s.get('date','')} · {s.get('category','')} · {s.get('year','')}</div></div>
+            </div>""",unsafe_allow_html=True)
