@@ -134,7 +134,7 @@ if st.session_state.page == "dashboard":
     def info_row(k,v):
         return f'<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:13px;"><span style="color:#94a3b8;min-width:90px;">{k}</span><span style="color:#1e293b;font-weight:600;">{v}</span></div>'
     with i1:
-        for k,v in [("사업명","자동차 부품 순환경제 혁신 인프라 구축 사업"),("사업기간","2026~2030년 (5년간)"),("주관기관","광주미래차모빌리티진흥원"),("참여기관","한국생산기술연구원 광주본부"),("전문기관","KIAT")]:
+        for k,v in [("사업명","자동차 부품 순환경제 혁신 인프라 구축 사업"),("사업기간","2026~2030년 (5년간)"),("주관기관","광주미래차모빌리티진흥원"),("참여기관","한국생산기술연구원 광주본부, 한국기초과학지원연구원"),("전문기관","KIAT")]:
             st.markdown(info_row(k,v),unsafe_allow_html=True)
     with i2:
         for k,v in [("총사업비","450억원"),("국비","99억원 (22%)"),("시비","80억원 (17.8%)"),("민자","271억원 (60.2%)"),("사업위치","광주 남구 에너지밸리산단")]:
@@ -145,15 +145,43 @@ elif st.session_state.page == "files":
     st.markdown('<div class="sec-title">📁 자료 관리</div>',unsafe_allow_html=True)
 
     with st.expander("➕ 새 자료 등록", expanded=True):
-        u1,u2 = st.columns([2,1])
+        st.markdown("""
+        <style>
+        [data-testid="stFileUploader"] {
+            background: #f0f6ff;
+            border: 2.5px dashed #2563eb;
+            border-radius: 14px;
+            padding: 10px 16px;
+        }
+        [data-testid="stFileUploader"]:hover {
+            background: #dbeafe;
+            border-color: #1d4ed8;
+        }
+        [data-testid="stFileUploaderDropzone"] {
+            background: transparent !important;
+        }
+        [data-testid="stFileUploaderDropzoneInstructions"] {
+            color: #2563eb !important;
+            font-weight: 700 !important;
+            font-size: 14px !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        uploaded = st.file_uploader(
+            "📂 파일을 여기에 드래그하거나 클릭해서 선택하세요",
+            accept_multiple_files=True,
+            type=["pdf","hwp","docx","doc","xlsx","xls","pptx","ppt","png","jpg","jpeg","txt","csv"],
+            help="PDF, HWP, DOCX, XLSX, PPT, 이미지 등 여러 파일을 한번에 업로드할 수 있어요"
+        )
+
+        u1, u2 = st.columns(2)
         with u1:
-            uploaded = st.file_uploader("파일 선택 (PDF, HWP, DOCX, XLSX, PPT, 이미지 등)",
-                accept_multiple_files=True,
-                type=["pdf","hwp","docx","doc","xlsx","xls","pptx","ppt","png","jpg","jpeg","txt","csv"])
-        with u2:
             category = st.selectbox("분류",["공모/공고","협약서","사업계획서","예산/정산",
                 "장비 관련","기업지원","SPC 설립","회의자료","보고서","인력양성","기타"])
+        with u2:
             memo = st.text_input("메모 (선택)")
+
         if st.button("📤 업로드", type="primary") and uploaded:
             for f in uploaded:
                 sp = os.path.join(UPLOAD_DIR, f.name)
@@ -238,7 +266,7 @@ elif st.session_state.page == "schedule":
     sl=sorted(sl,key=lambda x:x.get("date",""))
 
     st.markdown(f"**총 {len(sl)}건**")
-    tab1,tab2,tab3 = st.tabs(["📋 목록","📆 연차별","⚡ D-Day 현황"])
+    tab1,tab2,tab3,tab4 = st.tabs(["📋 목록","🗓️ 달력","📆 연차별","⚡ D-Day 현황"])
 
     with tab1:
         if not sl: st.info("등록된 일정이 없습니다.")
@@ -273,6 +301,89 @@ elif st.session_state.page == "schedule":
                     save(data); st.rerun()
 
     with tab2:
+        import calendar
+        cal_col1, cal_col2 = st.columns([1,3])
+        with cal_col1:
+            cal_year  = st.selectbox("년도", [2026,2027,2028,2029,2030], index=max(0, today.year-2026), key="cal_y")
+            cal_month = st.selectbox("월", list(range(1,13)), index=today.month-1, key="cal_m")
+
+        # 해당 월 일정 모아두기
+        month_scheds = {}
+        for s in data["schedules"]:
+            if s.get("date"):
+                try:
+                    sd = date.fromisoformat(s["date"])
+                    if sd.year == cal_year and sd.month == cal_month:
+                        month_scheds.setdefault(sd.day, []).append(s)
+                except: pass
+
+        with cal_col2:
+            st.markdown(f"#### {cal_year}년 {cal_month}월")
+            # 요일 헤더
+            days_kr = ["월","화","수","목","금","토","일"]
+            header_html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;">'
+            for i,d_name in enumerate(days_kr):
+                color = "#2563eb" if i==5 else "#dc2626" if i==6 else "#64748b"
+                header_html += f'<div style="text-align:center;font-size:12px;font-weight:700;color:{color};padding:4px;">{d_name}</div>'
+            header_html += '</div>'
+            st.markdown(header_html, unsafe_allow_html=True)
+
+            # 달력 생성
+            cal = calendar.monthcalendar(cal_year, cal_month)
+            for week in cal:
+                week_html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;">'
+                for wi, day_num in enumerate(week):
+                    if day_num == 0:
+                        week_html += '<div style="min-height:64px;"></div>'
+                        continue
+                    is_today = (day_num == today.day and cal_year == today.year and cal_month == today.month)
+                    is_sat = wi == 5
+                    is_sun = wi == 6
+                    day_scheds = month_scheds.get(day_num, [])
+
+                    num_color = "#2563eb" if is_sat else "#dc2626" if is_sun else "#1e293b"
+                    bg = "#dbeafe" if is_today else "#fff"
+                    border = "2px solid #2563eb" if is_today else "1px solid #e2e8f0"
+
+                    dots_html = ""
+                    for s in day_scheds[:3]:
+                        imp = s.get("importance","")
+                        dc = "#dc2626" if "높음" in imp else "#d97706" if "보통" in imp else "#16a34a"
+                        if s.get("done"): dc = "#94a3b8"
+                        short = s["title"][:8] + ("…" if len(s["title"])>8 else "")
+                        dots_html += f'<div style="background:{dc};color:#fff;font-size:9px;border-radius:3px;padding:1px 4px;margin-top:2px;overflow:hidden;white-space:nowrap;">{short}</div>'
+                    if len(day_scheds) > 3:
+                        dots_html += f'<div style="font-size:9px;color:#94a3b8;margin-top:1px;">+{len(day_scheds)-3}건 더</div>'
+
+                    week_html += f'''<div style="min-height:64px;background:{bg};border:{border};
+                      border-radius:8px;padding:4px 6px;">
+                      <div style="font-size:12px;font-weight:700;color:{num_color};">{day_num}</div>
+                      {dots_html}
+                    </div>'''
+                week_html += '</div>'
+                st.markdown(week_html, unsafe_allow_html=True)
+
+        # 해당 월 일정 목록
+        if month_scheds:
+            st.markdown(f"**{cal_month}월 일정 목록**")
+            for day_num in sorted(month_scheds.keys()):
+                for s in month_scheds[day_num]:
+                    imp = s.get("importance","")
+                    ic = "#dc2626" if "높음" in imp else "#d97706" if "보통" in imp else "#16a34a"
+                    done_style = "opacity:0.5;text-decoration:line-through;" if s.get("done") else ""
+                    st.markdown(f'''<div style="display:flex;gap:10px;align-items:center;
+                      padding:8px 14px;background:#fff;border:1px solid #e2e8f0;
+                      border-radius:8px;margin-bottom:6px;{done_style}">
+                      <span style="color:{ic};font-size:14px;">●</span>
+                      <span style="font-weight:700;color:#1e3a5f;min-width:30px;">{day_num}일</span>
+                      <span style="font-size:13px;color:#1e293b;">{s["title"]}</span>
+                      <span class="tag tag-gray" style="font-size:10px;">{s.get("category","")}</span>
+                      {"<span class='tag' style='background:#dcfce7;color:#16a34a;font-size:10px;'>✅완료</span>" if s.get("done") else ""}
+                    </div>''', unsafe_allow_html=True)
+        else:
+            st.info(f"{cal_month}월에 등록된 일정이 없습니다.")
+
+    with tab3:
         for yr in ["2026","2027","2028","2029","2030"]:
             ys=[s for s in data["schedules"] if s.get("year")==yr]
             dc=sum(1 for s in ys if s.get("done"))
@@ -290,8 +401,7 @@ elif st.session_state.page == "schedule":
                 color="#94a3b8" if s.get("done") else "#1e293b"
                 st.markdown(f'<div style="padding:3px 0 3px 24px;font-size:12px;color:{color};">{chk} {s.get("date","")} &nbsp; {s["title"]} <span style="color:#94a3b8;">({s.get("category","")})</span></div>',unsafe_allow_html=True)
 
-    with tab3:
-        urgent=[s for s in data["schedules"] if not s.get("done") and s.get("date")
+    with tab4: if not s.get("done") and s.get("date")
                 and (date.fromisoformat(s["date"])-today).days<=30]
         urgent=sorted(urgent,key=lambda x:x["date"])
         if not urgent: st.success("🎉 30일 내 촉박한 일정이 없습니다!")
@@ -307,3 +417,4 @@ elif st.session_state.page == "schedule":
               <div><div style="font-weight:700;font-size:13px;">{s['title']}</div>
               <div style="font-size:11px;color:#64748b;">{s.get('date','')} · {s.get('category','')} · {s.get('year','')}</div></div>
             </div>""",unsafe_allow_html=True)
+            
