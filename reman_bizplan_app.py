@@ -401,7 +401,8 @@ elif st.session_state.page == "schedule":
                 color="#94a3b8" if s.get("done") else "#1e293b"
                 st.markdown(f'<div style="padding:3px 0 3px 24px;font-size:12px;color:{color};">{chk} {s.get("date","")} &nbsp; {s["title"]} <span style="color:#94a3b8;">({s.get("category","")})</span></div>',unsafe_allow_html=True)
 
-    with tab4: if not s.get("done") and s.get("date")
+    with tab4:
+        urgent=[s for s in data["schedules"] if not s.get("done") and s.get("date")
                 and (date.fromisoformat(s["date"])-today).days<=30]
         urgent=sorted(urgent,key=lambda x:x["date"])
         if not urgent: st.success("🎉 30일 내 촉박한 일정이 없습니다!")
@@ -417,4 +418,3 @@ elif st.session_state.page == "schedule":
               <div><div style="font-weight:700;font-size:13px;">{s['title']}</div>
               <div style="font-size:11px;color:#64748b;">{s.get('date','')} · {s.get('category','')} · {s.get('year','')}</div></div>
             </div>""",unsafe_allow_html=True)
-            
