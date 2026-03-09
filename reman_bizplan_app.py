@@ -98,62 +98,11 @@ if st.session_state.page == "dashboard":
     with c4: st.metric("🔴 기한 초과", f"{overdue}건")
     st.markdown("---")
 
-    # ── 대시보드 미니 달력 ──
     import calendar as cal_module
-    st.markdown('<div class="sec-title">🗓️ 이번 달 달력</div>', unsafe_allow_html=True)
+    cal_module.setfirstweekday(6)
 
-    dash_year, dash_month = today.year, today.month
-    dash_scheds = {}
-    for s in data["schedules"]:
-        if s.get("date"):
-            try:
-                sd = date.fromisoformat(s["date"])
-                if sd.year == dash_year and sd.month == dash_month:
-                    dash_scheds.setdefault(sd.day, []).append(s)
-            except: pass
-
-    day_names  = ["월","화","수","목","금","토","일"]
-    day_colors_hdr = ["#475569"]*5 + ["#2563eb","#dc2626"]
-    hdr_cols = st.columns(7)
-    for i, col in enumerate(hdr_cols):
-        col.markdown(
-            '<div style="text-align:center;font-weight:700;font-size:12px;'
-            'color:' + day_colors_hdr[i] + ';padding:4px 0;border-bottom:2px solid #e2e8f0;">'
-            + day_names[i] + '</div>',
-            unsafe_allow_html=True
-        )
-    for week in cal_module.monthcalendar(dash_year, dash_month):
-        wcols = st.columns(7)
-        for wi, (col, day_num) in enumerate(zip(wcols, week)):
-            if day_num == 0:
-                col.markdown('<div style="min-height:58px;"></div>', unsafe_allow_html=True)
-                continue
-            is_today   = (day_num == today.day)
-            day_scheds = dash_scheds.get(day_num, [])
-            num_color  = "#2563eb" if wi==5 else "#dc2626" if wi==6 else "#1e293b"
-            bg         = "#dbeafe" if is_today else "#ffffff"
-            border     = "2px solid #2563eb" if is_today else "1px solid #e2e8f0"
-            today_dot  = '<div style="width:4px;height:4px;background:#2563eb;border-radius:50%;margin:0 auto 1px;"></div>' if is_today else ""
-            badge_parts = []
-            for s in day_scheds[:2]:
-                imp = s.get("importance","")
-                bc  = "#94a3b8" if s.get("done") else ("#dc2626" if "높음" in imp else "#d97706" if "보통" in imp else "#16a34a")
-                t   = s["title"][:5] + ("…" if len(s["title"])>5 else "")
-                badge_parts.append(
-                    '<div style="background:' + bc + ';color:#fff;font-size:8px;'
-                    'border-radius:3px;padding:1px 3px;margin-top:1px;overflow:hidden;white-space:nowrap;">' + t + '</div>'
-                )
-            if len(day_scheds) > 2:
-                badge_parts.append('<div style="font-size:8px;color:#94a3b8;">+' + str(len(day_scheds)-2) + '건</div>')
-            col.markdown(
-                '<div style="min-height:58px;background:' + bg + ';border:' + border + ';'
-                'border-radius:7px;padding:4px 4px 3px;">'
-                + today_dot +
-                '<div style="font-size:11px;font-weight:700;color:' + num_color + ';text-align:center;">' + str(day_num) + '</div>'
-                + "".join(badge_parts) + '</div>',
-                unsafe_allow_html=True
-            )
-    st.markdown("---")
+    if "dash_cal_y" not in st.session_state: st.session_state.dash_cal_y = today.year
+    if "dash_cal_m" not in st.session_state: st.session_state.dash_cal_m = today.month
 
     col_l, col_r = st.columns(2)
     with col_l:
@@ -169,21 +118,105 @@ if st.session_state.page == "dashboard":
             </div></div>""",unsafe_allow_html=True)
 
     with col_r:
-        st.markdown('<div class="sec-title">📅 다가오는 일정</div>',unsafe_allow_html=True)
-        ups = sorted([s for s in data["schedules"] if s.get("date") and not s.get("done")],key=lambda x:x["date"])[:6]
-        if not ups: st.info("등록된 일정이 없습니다.")
-        for s in ups:
-            d = date.fromisoformat(s["date"])
-            diff = (d-today).days
-            if diff<0: badge=f'<span class="badge-d d-urgent">D+{abs(diff)} 초과</span>'
-            elif diff==0: badge='<span class="badge-d d-urgent">D-Day</span>'
-            elif diff<=7: badge=f'<span class="badge-d d-soon">D-{diff}</span>'
-            else: badge=f'<span class="badge-d d-ok">D-{diff}</span>'
-            st.markdown(f"""<div class="sched-row">
-              <div class="sched-date">{s['date']}</div>
-              <div><div class="sched-title">{s['title']} {badge}</div>
-              <div class="sched-desc">{s.get('description','')[:60]}</div></div>
-            </div>""",unsafe_allow_html=True)
+        # ── 미니 달력 헤더 (화살표 + 월 표시) ──
+        dcy, dcm = st.session_state.dash_cal_y, st.session_state.dash_cal_m
+        dash_title = (f"{dcy}년 {dcm}월") if dcm in (1,12) else f"{dcm}월"
+
+        nav_l, nav_c, nav_r = st.columns([1, 4, 1])
+        with nav_l:
+            if st.button("◀", key="dash_prev", use_container_width=True):
+                if st.session_state.dash_cal_m == 1:
+                    st.session_state.dash_cal_m = 12; st.session_state.dash_cal_y -= 1
+                else:
+                    st.session_state.dash_cal_m -= 1
+                st.rerun()
+        with nav_c:
+            st.markdown(
+                '<div style="text-align:center;font-size:15px;font-weight:800;'
+                'color:#1e3a5f;padding:5px 0;">' + dash_title + '</div>',
+                unsafe_allow_html=True
+            )
+        with nav_r:
+            if st.button("▶", key="dash_next", use_container_width=True):
+                if st.session_state.dash_cal_m == 12:
+                    st.session_state.dash_cal_m = 1; st.session_state.dash_cal_y += 1
+                else:
+                    st.session_state.dash_cal_m += 1
+                st.rerun()
+
+        # 해당 월 일정 수집
+        dash_scheds = {}
+        for s in data["schedules"]:
+            if s.get("date"):
+                try:
+                    sd = date.fromisoformat(s["date"])
+                    if sd.year == dcy and sd.month == dcm:
+                        dash_scheds.setdefault(sd.day, []).append(s)
+                except: pass
+
+        # 달력 HTML을 하나의 테이블로 그리기 (박스 없이 깔끔하게)
+        day_names_mini  = ["일","월","화","수","목","금","토"]
+        day_colors_mini = ["#dc2626","#475569","#475569","#475569","#475569","#475569","#2563eb"]
+
+        cal_html = '<table style="width:100%;border-collapse:collapse;font-size:12px;">'
+        # 요일 헤더
+        cal_html += '<tr>'
+        for i, dn in enumerate(day_names_mini):
+            cal_html += (
+                '<th style="text-align:center;padding:4px 2px 6px;font-weight:700;'
+                'color:' + day_colors_mini[i] + ';border-bottom:1px solid #e2e8f0;">'
+                + dn + '</th>'
+            )
+        cal_html += '</tr>'
+
+        # 날짜 행
+        for week in cal_module.monthcalendar(dcy, dcm):
+            cal_html += '<tr>'
+            for wi, day_num in enumerate(week):
+                if day_num == 0:
+                    cal_html += '<td style="padding:4px 2px;height:34px;"></td>'
+                    continue
+                is_today   = (day_num == today.day and dcy == today.year and dcm == today.month)
+                day_scheds = dash_scheds.get(day_num, [])
+                num_color  = "#dc2626" if wi==0 else "#2563eb" if wi==6 else "#1e293b"
+
+                # 오늘은 파란 원
+                if is_today:
+                    num_html = (
+                        '<div style="width:24px;height:24px;border-radius:50%;'
+                        'background:#2563eb;color:#fff;font-weight:700;'
+                        'display:flex;align-items:center;justify-content:center;'
+                        'margin:0 auto;font-size:12px;">' + str(day_num) + '</div>'
+                    )
+                else:
+                    num_html = (
+                        '<div style="text-align:center;color:' + num_color
+                        + ';font-weight:' + ('700' if day_scheds else '400') + ';">'
+                        + str(day_num) + '</div>'
+                    )
+
+                # 일정 점 표시 (최대 3개)
+                dots = ""
+                if day_scheds:
+                    dot_colors = []
+                    for s in day_scheds[:3]:
+                        imp = s.get("importance","")
+                        bc = "#94a3b8" if s.get("done") else (
+                             "#dc2626" if "높음" in imp else "#d97706" if "보통" in imp else "#16a34a")
+                        dot_colors.append(bc)
+                    dots = '<div style="display:flex;justify-content:center;gap:2px;margin-top:2px;">'
+                    for bc in dot_colors:
+                        dots += '<div style="width:5px;height:5px;border-radius:50%;background:' + bc + ';"></div>'
+                    dots += '</div>'
+
+                cal_html += (
+                    '<td style="text-align:center;padding:3px 1px;height:34px;vertical-align:top;">'
+                    + num_html + dots + '</td>'
+                )
+            cal_html += '</tr>'
+        cal_html += '</table>'
+
+        st.markdown(cal_html, unsafe_allow_html=True)
 
     st.markdown("---")
     st.markdown('<div class="sec-title">📌 사업 기본 정보</div>',unsafe_allow_html=True)
@@ -359,93 +392,121 @@ elif st.session_state.page == "schedule":
 
     with tab2:
         import calendar as cal_module
-        nav1, nav2 = st.columns([1, 3])
-        with nav1:
-            cal_year  = st.selectbox("년도", [2026,2027,2028,2029,2030], index=max(0,min(today.year-2026,4)), key="cal_y")
-            cal_month = st.selectbox("월", list(range(1,13)), index=today.month-1, key="cal_m")
 
-        # 해당 월 일정 수집
+        # ── 달력 상태 초기화 ──
+        if "cal_y" not in st.session_state: st.session_state.cal_y = today.year
+        if "cal_m" not in st.session_state: st.session_state.cal_m = today.month
+
+        # ── 이전/다음 달 버튼 ──
+        a1, a2, a3 = st.columns([1, 3, 1])
+        with a1:
+            if st.button("◀ 이전달", key="cal_prev", use_container_width=True):
+                if st.session_state.cal_m == 1:
+                    st.session_state.cal_m = 12
+                    st.session_state.cal_y -= 1
+                else:
+                    st.session_state.cal_m -= 1
+                st.rerun()
+        with a2:
+            cy, cm = st.session_state.cal_y, st.session_state.cal_m
+            # 1월·12월엔 연도도 표시
+            if cm in (1, 12):
+                title_str = f"{cy}년 {cm}월"
+            else:
+                title_str = f"{cm}월"
+            st.markdown(
+                '<div style="text-align:center;font-size:20px;font-weight:900;'
+                'color:#1e3a5f;padding:6px 0;">' + title_str + '</div>',
+                unsafe_allow_html=True
+            )
+        with a3:
+            if st.button("다음달 ▶", key="cal_next", use_container_width=True):
+                if st.session_state.cal_m == 12:
+                    st.session_state.cal_m = 1
+                    st.session_state.cal_y += 1
+                else:
+                    st.session_state.cal_m += 1
+                st.rerun()
+
+        cy, cm = st.session_state.cal_y, st.session_state.cal_m
+
+        # ── 해당 월 일정 수집 ──
         month_scheds = {}
         for s in data["schedules"]:
             if s.get("date"):
                 try:
                     sd = date.fromisoformat(s["date"])
-                    if sd.year == cal_year and sd.month == cal_month:
+                    if sd.year == cy and sd.month == cm:
                         month_scheds.setdefault(sd.day, []).append(s)
                 except: pass
 
-        with nav2:
-            st.markdown(f"### {cal_year}년 {cal_month}월")
+        # ── 요일 헤더 (일~토) ──
+        day_names  = ["일","월","화","수","목","금","토"]
+        day_colors = ["#dc2626"] + ["#475569"]*5 + ["#2563eb"]
+        hdr = st.columns(7)
+        for i, col in enumerate(hdr):
+            col.markdown(
+                '<div style="text-align:center;font-weight:700;font-size:13px;'
+                'color:' + day_colors[i] + ';padding:6px 0;'
+                'border-bottom:2px solid #e2e8f0;">' + day_names[i] + '</div>',
+                unsafe_allow_html=True
+            )
 
-            # 요일 헤더
-            day_cols = st.columns(7)
-            day_names = ["월","화","수","목","금","토","일"]
-            day_colors = ["#475569"]*5 + ["#2563eb","#dc2626"]
-            for i, col in enumerate(day_cols):
+        # ── 달력 그리기 (일요일 시작: firstweekday=6) ──
+        cal_module.setfirstweekday(6)
+        weeks = cal_module.monthcalendar(cy, cm)
+        for week in weeks:
+            cols = st.columns(7)
+            for wi, (col, day_num) in enumerate(zip(cols, week)):
+                if day_num == 0:
+                    col.markdown('<div style="min-height:72px;"></div>', unsafe_allow_html=True)
+                    continue
+                is_today   = (day_num == today.day and cy == today.year and cm == today.month)
+                day_scheds = month_scheds.get(day_num, [])
+                # 일=0, 토=6
+                num_color  = "#dc2626" if wi==0 else "#2563eb" if wi==6 else "#1e293b"
+                bg         = "#dbeafe" if is_today else "#ffffff"
+                border     = "2px solid #2563eb" if is_today else "1px solid #e2e8f0"
+                today_dot  = ('<div style="width:5px;height:5px;background:#2563eb;'
+                              'border-radius:50%;margin:0 auto 2px;"></div>') if is_today else ""
+                badge_parts = []
+                for s in day_scheds[:2]:
+                    imp = s.get("importance","")
+                    bc  = "#94a3b8" if s.get("done") else (
+                          "#dc2626" if "높음" in imp else "#d97706" if "보통" in imp else "#16a34a")
+                    t   = s["title"][:6] + ("…" if len(s["title"])>6 else "")
+                    badge_parts.append(
+                        '<div style="background:' + bc + ';color:#fff;font-size:8px;'
+                        'border-radius:3px;padding:1px 3px;margin-top:2px;'
+                        'overflow:hidden;white-space:nowrap;">' + t + '</div>'
+                    )
+                if len(day_scheds) > 2:
+                    badge_parts.append(
+                        '<div style="font-size:8px;color:#94a3b8;margin-top:1px;">+'
+                        + str(len(day_scheds)-2) + '건</div>'
+                    )
                 col.markdown(
-                    f'<div style="text-align:center;font-weight:700;font-size:13px;'
-                    f'color:{day_colors[i]};padding:6px 0;border-bottom:2px solid #e2e8f0;">'
-                    f'{day_names[i]}</div>',
+                    '<div style="min-height:72px;background:' + bg + ';border:' + border + ';'
+                    'border-radius:8px;padding:5px 5px 4px;">'
+                    + today_dot
+                    + '<div style="font-size:12px;font-weight:700;color:' + num_color
+                    + ';text-align:center;">' + str(day_num) + '</div>'
+                    + "".join(badge_parts) + '</div>',
                     unsafe_allow_html=True
                 )
 
-            # 주별 달력
-            weeks = cal_module.monthcalendar(cal_year, cal_month)
-            for week in weeks:
-                cols = st.columns(7)
-                for wi, (col, day_num) in enumerate(zip(cols, week)):
-                    if day_num == 0:
-                        col.markdown('<div style="min-height:70px;"></div>', unsafe_allow_html=True)
-                        continue
-
-                    is_today = (day_num == today.day and cal_year == today.year and cal_month == today.month)
-                    day_scheds = month_scheds.get(day_num, [])
-
-                    num_color = "#2563eb" if wi==5 else "#dc2626" if wi==6 else "#1e293b"
-                    bg        = "#dbeafe" if is_today else "#ffffff"
-                    border    = "2px solid #2563eb" if is_today else "1px solid #e2e8f0"
-                    today_dot = '<div style="width:5px;height:5px;background:#2563eb;border-radius:50%;margin:0 auto 2px;"></div>' if is_today else ""
-
-                    # 일정 뱃지 조립 (HTML 안에 f-string 중첩 없이)
-                    badge_parts = []
-                    for s in day_scheds[:2]:
-                        imp = s.get("importance","")
-                        bc = "#94a3b8" if s.get("done") else ("#dc2626" if "높음" in imp else "#d97706" if "보통" in imp else "#16a34a")
-                        title_short = s["title"][:6] + ("…" if len(s["title"]) > 6 else "")
-                        badge_parts.append(
-                            '<div style="background:' + bc + ';color:#fff;font-size:8px;'
-                            'border-radius:3px;padding:1px 3px;margin-top:2px;'
-                            'overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">'
-                            + title_short + '</div>'
-                        )
-                    if len(day_scheds) > 2:
-                        badge_parts.append(
-                            '<div style="font-size:8px;color:#94a3b8;margin-top:1px;">+'
-                            + str(len(day_scheds)-2) + '건</div>'
-                        )
-                    badges_html = "".join(badge_parts)
-
-                    cell_html = (
-                        '<div style="min-height:70px;background:' + bg + ';border:' + border + ';'
-                        'border-radius:8px;padding:5px 5px 4px;cursor:default;">'
-                        + today_dot +
-                        '<div style="font-size:12px;font-weight:700;color:' + num_color + ';text-align:center;">'
-                        + str(day_num) + '</div>'
-                        + badges_html +
-                        '</div>'
-                    )
-                    col.markdown(cell_html, unsafe_allow_html=True)
-
+        # ── 해당 월 일정 목록 ──
         st.markdown("---")
-        # 해당 월 일정 목록
         if month_scheds:
-            st.markdown(f"**{cal_month}월 일정 목록**")
+            st.markdown(f"**{cm}월 일정 목록**")
             for day_num in sorted(month_scheds.keys()):
                 for s in month_scheds[day_num]:
                     imp = s.get("importance","")
-                    ic  = "#dc2626" if "높음" in imp else "#d97706" if "보통" in imp else "#16a34a"
-                    if s.get("done"): ic = "#94a3b8"
-                    done_badge = '<span style="background:#dcfce7;color:#16a34a;font-size:10px;border-radius:10px;padding:1px 7px;margin-left:6px;">✅ 완료</span>' if s.get("done") else ""
+                    ic  = "#94a3b8" if s.get("done") else (
+                          "#dc2626" if "높음" in imp else "#d97706" if "보통" in imp else "#16a34a")
+                    done_badge = ('<span style="background:#dcfce7;color:#16a34a;font-size:10px;'
+                                  'border-radius:10px;padding:1px 7px;margin-left:6px;">✅ 완료</span>'
+                                  ) if s.get("done") else ""
                     op = "opacity:0.5;" if s.get("done") else ""
                     st.markdown(
                         '<div style="display:flex;gap:10px;align-items:center;padding:9px 14px;'
@@ -459,7 +520,7 @@ elif st.session_state.page == "schedule":
                         unsafe_allow_html=True
                     )
         else:
-            st.info(f"{cal_month}월에 등록된 일정이 없습니다.")
+            st.info(f"{cm}월에 등록된 일정이 없습니다.")
 
     with tab3:
         for yr in ["2026","2027","2028","2029","2030"]:
