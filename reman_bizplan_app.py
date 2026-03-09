@@ -158,7 +158,7 @@ if st.session_state.page == "dashboard":
         day_names_mini  = ["일","월","화","수","목","금","토"]
         day_colors_mini = ["#dc2626","#475569","#475569","#475569","#475569","#475569","#2563eb"]
 
-        cal_html = '<table style="width:100%;border-collapse:collapse;font-size:12px;">'
+        cal_html = '<table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;">'
         # 요일 헤더
         cal_html += '<tr>'
         for i, dn in enumerate(day_names_mini):
@@ -340,6 +340,134 @@ elif st.session_state.page == "schedule":
                 save(data); st.success("✅ 일정 등록 완료!"); st.rerun()
             else: st.warning("일정 제목을 입력해주세요.")
 
+    # ── AI 일정 파싱 ──
+    with st.expander("🤖 파일에서 일정 자동 추출 (AI)", expanded=False):
+        st.markdown('<div style="font-size:13px;color:#64748b;margin-bottom:10px;">계획서·회의록·공문 등을 업로드하면 AI가 일정을 읽어서 등록 후보를 보여드려요.</div>', unsafe_allow_html=True)
+        ai_file = st.file_uploader("파일 업로드 (PDF, DOCX, TXT, HWP)", type=["pdf","docx","txt","hwp"], key="ai_sched_file")
+
+        if ai_file:
+            if st.button("🔍 일정 분석하기", type="primary", key="ai_analyze"):
+                with st.spinner("AI가 파일을 분석 중입니다..."):
+                    # 텍스트 추출
+                    raw_text = ""
+                    try:
+                        if ai_file.name.endswith(".txt"):
+                            raw_text = ai_file.read().decode("utf-8", errors="ignore")
+                        elif ai_file.name.endswith(".pdf"):
+                            import struct, zlib, re as _re
+                            content = ai_file.read()
+                            # PDF에서 텍스트 추출 시도
+                            text_parts = _re.findall(b'BT.*?ET', content, _re.DOTALL)
+                            for part in text_parts:
+                                chars = _re.findall(rb'\(([^)]*)\)', part)
+                                for c in chars:
+                                    try: raw_text += c.decode("latin-1","ignore") + " "
+                                    except: pass
+                            if not raw_text.strip():
+                                raw_text = str(content[:3000])
+                        else:
+                            raw_text = str(ai_file.read()[:3000])
+                    except:
+                        raw_text = ""
+
+                    # Anthropic API 호출
+                    import urllib.request, json as _json
+                    prompt = f"""다음 문서에서 일정(날짜, 할 일, 마감일, 회의, 보고 등)을 추출해주세요.
+
+문서 내용:
+{raw_text[:4000] if raw_text.strip() else "※ 파일에서 텍스트를 직접 읽기 어렵습니다. 파일명: " + ai_file.name}
+
+파일명: {ai_file.name}
+
+다음 JSON 형식으로만 답하세요 (다른 말 없이):
+[
+  {{
+    "title": "일정 제목",
+    "date": "YYYY-MM-DD",
+    "description": "상세 내용",
+    "category": "공모/심의|협약|장비구축|SPC설립|기업지원|보고/정산|회의|교육|기타 중 하나",
+    "year": "2026|2027|2028|2029|2030|해당없음 중 하나",
+    "importance": "높음 🔴|보통 🟡|낮음 🟢 중 하나"
+  }}
+]
+
+날짜가 불명확하면 합리적으로 추정하세요. 일정이 없으면 [] 를 반환하세요."""
+
+                    try:
+                        req = urllib.request.Request(
+                            "https://api.anthropic.com/v1/messages",
+                            data=_json.dumps({
+                                "model": "claude-sonnet-4-20250514",
+                                "max_tokens": 1000,
+                                "messages": [{"role": "user", "content": prompt}]
+                            }).encode(),
+                            headers={
+                                "Content-Type": "application/json",
+                                "anthropic-version": "2023-06-01"
+                            },
+                            method="POST"
+                        )
+                        with urllib.request.urlopen(req) as resp:
+                            result = _json.loads(resp.read())
+                            ai_text = result["content"][0]["text"].strip()
+                            # JSON 파싱
+                            import re as _re2
+                            json_match = _re2.search(r'\[.*\]', ai_text, _re2.DOTALL)
+                            if json_match:
+                                parsed = _json.loads(json_match.group())
+                                st.session_state.ai_parsed = parsed
+                            else:
+                                st.session_state.ai_parsed = []
+                    except Exception as e:
+                        st.error(f"분석 중 오류가 발생했습니다: {e}")
+                        st.session_state.ai_parsed = []
+
+        # 파싱 결과 표시
+        if "ai_parsed" in st.session_state and st.session_state.ai_parsed:
+            parsed = st.session_state.ai_parsed
+            st.markdown(f"**📋 {len(parsed)}개의 일정을 찾았습니다. 등록할 항목을 선택하세요.**")
+            selected = []
+            for i, item in enumerate(parsed):
+                col_chk, col_info = st.columns([1, 8])
+                with col_chk:
+                    chk = st.checkbox("", value=True, key=f"ai_chk_{i}")
+                with col_info:
+                    ic = "#dc2626" if "높음" in item.get("importance","") else "#d97706" if "보통" in item.get("importance","") else "#16a34a"
+                    st.markdown(
+                        '<div style="padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">'
+                        '<span style="font-weight:700;color:#1e293b;">' + item.get("title","") + '</span>'
+                        '<span style="margin-left:8px;color:#2563eb;font-size:12px;">' + item.get("date","") + '</span>'
+                        '<span style="margin-left:6px;background:#f1f5f9;color:#64748b;font-size:11px;border-radius:8px;padding:1px 6px;">' + item.get("category","") + '</span>'
+                        '<span style="margin-left:6px;color:' + ic + ';font-size:11px;">' + item.get("importance","") + '</span>'
+                        + ('<div style="font-size:11px;color:#94a3b8;margin-top:3px;">' + item.get("description","") + '</div>' if item.get("description") else "") +
+                        '</div>',
+                        unsafe_allow_html=True
+                    )
+                if chk:
+                    selected.append(item)
+
+            st.markdown("")
+            if st.button(f"✅ 선택한 {len(selected)}개 일정 등록", type="primary", key="ai_register"):
+                for item in selected:
+                    data["schedules"].append({
+                        "id": int(datetime.now().timestamp()*1000) + selected.index(item),
+                        "title": item.get("title",""),
+                        "description": item.get("description",""),
+                        "date": item.get("date", today.isoformat()),
+                        "category": item.get("category","기타"),
+                        "year": item.get("year","해당없음"),
+                        "importance": item.get("importance","보통 🟡"),
+                        "done": False,
+                        "created_at": datetime.now().isoformat()
+                    })
+                save(data)
+                del st.session_state.ai_parsed
+                st.success(f"✅ {len(selected)}개 일정이 등록되었습니다!")
+                st.rerun()
+
+        elif "ai_parsed" in st.session_state and st.session_state.ai_parsed == []:
+            st.warning("문서에서 일정을 찾지 못했습니다.")
+
     st.markdown("---")
     ff1,ff2,ff3,ff4 = st.columns(4)
     with ff1: fy=st.selectbox("사업연도",["전체","2026","2027","2028","2029","2030","해당없음"])
@@ -392,110 +520,98 @@ elif st.session_state.page == "schedule":
 
     with tab2:
         import calendar as cal_module
+        cal_module.setfirstweekday(6)
 
-        # ── 달력 상태 초기화 ──
         if "cal_y" not in st.session_state: st.session_state.cal_y = today.year
         if "cal_m" not in st.session_state: st.session_state.cal_m = today.month
 
-        # ── 이전/다음 달 버튼 ──
-        a1, a2, a3 = st.columns([1, 3, 1])
-        with a1:
+        # 화살표 네비게이션 — HTML 버튼으로 처리해서 컬럼 크기 문제 방지
+        nav_l, nav_c, nav_r = st.columns([2, 6, 2])
+        with nav_l:
             if st.button("◀ 이전달", key="cal_prev", use_container_width=True):
                 if st.session_state.cal_m == 1:
-                    st.session_state.cal_m = 12
-                    st.session_state.cal_y -= 1
-                else:
-                    st.session_state.cal_m -= 1
+                    st.session_state.cal_m=12; st.session_state.cal_y-=1
+                else: st.session_state.cal_m-=1
                 st.rerun()
-        with a2:
+        with nav_c:
             cy, cm = st.session_state.cal_y, st.session_state.cal_m
-            # 1월·12월엔 연도도 표시
-            if cm in (1, 12):
-                title_str = f"{cy}년 {cm}월"
-            else:
-                title_str = f"{cm}월"
+            title_str = f"{cy}년 {cm}월" if cm in (1,12) else f"{cm}월"
             st.markdown(
-                '<div style="text-align:center;font-size:20px;font-weight:900;'
-                'color:#1e3a5f;padding:6px 0;">' + title_str + '</div>',
-                unsafe_allow_html=True
-            )
-        with a3:
+                '<div style="text-align:center;font-size:20px;font-weight:900;color:#1e3a5f;padding:6px 0;">'
+                + title_str + '</div>', unsafe_allow_html=True)
+        with nav_r:
             if st.button("다음달 ▶", key="cal_next", use_container_width=True):
                 if st.session_state.cal_m == 12:
-                    st.session_state.cal_m = 1
-                    st.session_state.cal_y += 1
-                else:
-                    st.session_state.cal_m += 1
+                    st.session_state.cal_m=1; st.session_state.cal_y+=1
+                else: st.session_state.cal_m+=1
                 st.rerun()
 
         cy, cm = st.session_state.cal_y, st.session_state.cal_m
 
-        # ── 해당 월 일정 수집 ──
+        # 해당 월 일정 수집
         month_scheds = {}
         for s in data["schedules"]:
             if s.get("date"):
                 try:
                     sd = date.fromisoformat(s["date"])
-                    if sd.year == cy and sd.month == cm:
-                        month_scheds.setdefault(sd.day, []).append(s)
+                    if sd.year==cy and sd.month==cm:
+                        month_scheds.setdefault(sd.day,[]).append(s)
                 except: pass
 
-        # ── 요일 헤더 (일~토) ──
-        day_names  = ["일","월","화","수","목","금","토"]
-        day_colors = ["#dc2626"] + ["#475569"]*5 + ["#2563eb"]
-        hdr = st.columns(7)
-        for i, col in enumerate(hdr):
-            col.markdown(
-                '<div style="text-align:center;font-weight:700;font-size:13px;'
-                'color:' + day_colors[i] + ';padding:6px 0;'
-                'border-bottom:2px solid #e2e8f0;">' + day_names[i] + '</div>',
-                unsafe_allow_html=True
-            )
+        # 달력을 HTML 테이블 하나로 그리기 → 컬럼 크기 문제 없음
+        dn = ["일","월","화","수","목","금","토"]
+        dc_hdr = ["#dc2626","#475569","#475569","#475569","#475569","#475569","#2563eb"]
 
-        # ── 달력 그리기 (일요일 시작: firstweekday=6) ──
-        cal_module.setfirstweekday(6)
-        weeks = cal_module.monthcalendar(cy, cm)
-        for week in weeks:
-            cols = st.columns(7)
-            for wi, (col, day_num) in enumerate(zip(cols, week)):
+        cal_html = '<table style="width:100%;border-collapse:collapse;table-layout:fixed;">'
+        # 요일 헤더
+        cal_html += '<tr>'
+        for i in range(7):
+            cal_html += ('<th style="text-align:center;padding:8px 2px;font-size:13px;font-weight:700;'
+                         'color:' + dc_hdr[i] + ';border-bottom:2px solid #e2e8f0;width:14.28%;">'
+                         + dn[i] + '</th>')
+        cal_html += '</tr>'
+
+        for week in cal_module.monthcalendar(cy, cm):
+            cal_html += '<tr>'
+            for wi, day_num in enumerate(week):
                 if day_num == 0:
-                    col.markdown('<div style="min-height:72px;"></div>', unsafe_allow_html=True)
+                    cal_html += '<td style="height:80px;padding:4px;"></td>'
                     continue
-                is_today   = (day_num == today.day and cy == today.year and cm == today.month)
+                is_today   = (day_num==today.day and cy==today.year and cm==today.month)
                 day_scheds = month_scheds.get(day_num, [])
-                # 일=0, 토=6
                 num_color  = "#dc2626" if wi==0 else "#2563eb" if wi==6 else "#1e293b"
-                bg         = "#dbeafe" if is_today else "#ffffff"
-                border     = "2px solid #2563eb" if is_today else "1px solid #e2e8f0"
-                today_dot  = ('<div style="width:5px;height:5px;background:#2563eb;'
-                              'border-radius:50%;margin:0 auto 2px;"></div>') if is_today else ""
-                badge_parts = []
-                for s in day_scheds[:2]:
+                bg         = "#f0f7ff" if is_today else "#fff"
+                border_b   = "2px solid #2563eb" if is_today else "1px solid #f1f5f9"
+
+                if is_today:
+                    num_html = ('<div style="width:26px;height:26px;border-radius:50%;background:#2563eb;'
+                                'color:#fff;font-weight:800;display:inline-flex;align-items:center;'
+                                'justify-content:center;font-size:13px;">' + str(day_num) + '</div>')
+                else:
+                    num_html = ('<span style="font-size:13px;font-weight:' + ('700' if day_scheds else '400')
+                                + ';color:' + num_color + ';">' + str(day_num) + '</span>')
+
+                dots = ""
+                for s in day_scheds[:3]:
                     imp = s.get("importance","")
                     bc  = "#94a3b8" if s.get("done") else (
                           "#dc2626" if "높음" in imp else "#d97706" if "보통" in imp else "#16a34a")
-                    t   = s["title"][:6] + ("…" if len(s["title"])>6 else "")
-                    badge_parts.append(
-                        '<div style="background:' + bc + ';color:#fff;font-size:8px;'
-                        'border-radius:3px;padding:1px 3px;margin-top:2px;'
-                        'overflow:hidden;white-space:nowrap;">' + t + '</div>'
-                    )
-                if len(day_scheds) > 2:
-                    badge_parts.append(
-                        '<div style="font-size:8px;color:#94a3b8;margin-top:1px;">+'
-                        + str(len(day_scheds)-2) + '건</div>'
-                    )
-                col.markdown(
-                    '<div style="min-height:72px;background:' + bg + ';border:' + border + ';'
-                    'border-radius:8px;padding:5px 5px 4px;">'
-                    + today_dot
-                    + '<div style="font-size:12px;font-weight:700;color:' + num_color
-                    + ';text-align:center;">' + str(day_num) + '</div>'
-                    + "".join(badge_parts) + '</div>',
-                    unsafe_allow_html=True
-                )
+                    short = s["title"][:7] + ("…" if len(s["title"])>7 else "")
+                    dots += ('<div style="font-size:9px;background:' + bc + ';color:#fff;'
+                             'border-radius:3px;padding:1px 4px;margin-top:2px;'
+                             'overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">'
+                             + short + '</div>')
+                if len(day_scheds) > 3:
+                    dots += '<div style="font-size:9px;color:#94a3b8;margin-top:1px;">+' + str(len(day_scheds)-3) + '건</div>'
 
-        # ── 해당 월 일정 목록 ──
+                cal_html += ('<td style="height:80px;padding:6px 5px;vertical-align:top;'
+                             'background:' + bg + ';border-bottom:' + border_b + ';">'
+                             + num_html + dots + '</td>')
+            cal_html += '</tr>'
+        cal_html += '</table>'
+        st.markdown(cal_html, unsafe_allow_html=True)
+
+        # 해당 월 일정 목록
         st.markdown("---")
         if month_scheds:
             st.markdown(f"**{cm}월 일정 목록**")
@@ -516,9 +632,7 @@ elif st.session_state.page == "schedule":
                         '<span style="font-size:13px;color:#1e293b;">' + s["title"] + done_badge + '</span>'
                         '<span style="margin-left:auto;background:#f1f5f9;color:#64748b;font-size:10px;'
                         'border-radius:10px;padding:1px 7px;">' + s.get("category","") + '</span>'
-                        '</div>',
-                        unsafe_allow_html=True
-                    )
+                        '</div>', unsafe_allow_html=True)
         else:
             st.info(f"{cm}월에 등록된 일정이 없습니다.")
 
