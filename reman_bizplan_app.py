@@ -30,91 +30,78 @@ st.markdown("""
     html, body, [class*="css"] {
         font-family: 'Noto Sans KR', sans-serif;
     }
-    .main { background-color: #0f1117; }
-    .stApp { background-color: #0f1117; }
+    .main { background-color: #f8f9fb; }
+    .stApp { background-color: #f8f9fb; }
 
     /* 헤더 타이틀 */
     .app-header {
-        background: linear-gradient(135deg, #1a1200, #2a2000);
-        border: 1px solid #e8a020;
-        border-radius: 12px;
+        background: linear-gradient(135deg, #1e3a5f, #2563eb);
+        border-radius: 14px;
         padding: 24px 32px;
         margin-bottom: 24px;
         text-align: center;
+        box-shadow: 0 4px 20px rgba(37,99,235,0.2);
     }
-    .app-header h1 { color: #f5c842; margin: 0; font-size: 26px; font-weight: 900; }
-    .app-header p { color: #888; margin: 4px 0 0; font-size: 13px; }
+    .app-header h1 { color: #ffffff; margin: 0; font-size: 26px; font-weight: 900; }
+    .app-header p { color: rgba(255,255,255,0.7); margin: 4px 0 0; font-size: 13px; }
 
     /* 카드 */
     .plan-card {
-        background: #1a1d27;
-        border: 1px solid #2a2d3e;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
         border-radius: 12px;
         padding: 18px 22px;
         margin-bottom: 12px;
-        transition: border-color 0.2s;
+        box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+        transition: border-color 0.2s, box-shadow 0.2s;
     }
-    .plan-card:hover { border-color: #e8a020; }
-    .plan-card h3 { color: #f5c842; margin: 0 0 4px; font-size: 16px; }
-    .plan-card p { color: #666; margin: 0; font-size: 12px; }
+    .plan-card:hover { border-color: #2563eb; box-shadow: 0 4px 16px rgba(37,99,235,0.1); }
+    .plan-card h3 { color: #1e3a5f; margin: 0 0 4px; font-size: 16px; }
+    .plan-card p { color: #94a3b8; margin: 0; font-size: 12px; }
 
     /* 섹션 헤더 */
     .section-header {
-        border-left: 4px solid #e8a020;
+        border-left: 4px solid #2563eb;
         padding-left: 12px;
         margin: 24px 0 16px;
-        color: #f5c842;
+        color: #1e3a5f;
         font-size: 16px;
         font-weight: 800;
     }
 
     /* 진행률 텍스트 */
     .progress-label {
-        color: #f5c842;
+        color: #2563eb;
         font-size: 13px;
         font-weight: 700;
         text-align: right;
     }
 
     /* 미리보기 */
-    .preview-box {
-        background: #1a1d27;
-        border: 1px solid #2a2d3e;
-        border-radius: 12px;
-        padding: 32px 40px;
-    }
-    .preview-title {
-        text-align: center;
-        border-bottom: 3px solid #e8a020;
-        padding-bottom: 20px;
-        margin-bottom: 28px;
-    }
-    .preview-title h1 { color: #f5c842; font-size: 24px; margin: 4px 0; }
-    .preview-title p { color: #888; margin: 0; font-size: 12px; }
     .field-row { display: flex; gap: 16px; margin-bottom: 10px; font-size: 13px; }
-    .field-label { color: #888; min-width: 140px; flex-shrink: 0; }
-    .field-value { color: #e8e8f0; line-height: 1.6; white-space: pre-wrap; }
+    .field-label { color: #94a3b8; min-width: 140px; flex-shrink: 0; }
+    .field-value { color: #1e293b; line-height: 1.6; white-space: pre-wrap; }
 
     /* 사이드바 */
     section[data-testid="stSidebar"] {
-        background-color: #14171f !important;
-        border-right: 1px solid #2a2d3e;
+        background-color: #ffffff !important;
+        border-right: 1px solid #e2e8f0;
     }
     section[data-testid="stSidebar"] .stButton button {
         width: 100%;
         text-align: left;
         background: transparent;
         border: 1px solid transparent;
-        color: #888;
+        color: #64748b;
         font-size: 13px;
         padding: 8px 12px;
         border-radius: 8px;
         margin-bottom: 2px;
     }
     section[data-testid="stSidebar"] .stButton button:hover {
-        border-color: #e8a020;
-        color: #f5c842;
-        background: rgba(232,160,32,0.08);
+        border-color: #2563eb;
+        color: #2563eb;
+        background: rgba(37,99,235,0.06);
     }
 
     /* 버튼 */
@@ -125,14 +112,15 @@ st.markdown("""
     }
     div[data-testid="stTextInput"] input,
     div[data-testid="stTextArea"] textarea {
-        background-color: #1a1d27 !important;
-        border: 1px solid #2a2d3e !important;
-        color: #e8e8f0 !important;
+        background-color: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        color: #1e293b !important;
         border-radius: 8px;
     }
     div[data-testid="stTextInput"] input:focus,
     div[data-testid="stTextArea"] textarea:focus {
-        border-color: #e8a020 !important;
+        border-color: #2563eb !important;
+        box-shadow: 0 0 0 3px rgba(37,99,235,0.1) !important;
     }
 
     /* 성공/경고 메시지 */
@@ -301,7 +289,7 @@ with st.sidebar:
                 st.rerun()
 
     st.markdown("---")
-    st.markdown('<div style="color:#444;font-size:11px;text-align:center;">ReMan BizPlan v1.0<br>자동차 재제조 전문 관리</div>', unsafe_allow_html=True)
+    st.markdown('<div style="color:#94a3b8;font-size:11px;text-align:center;">ReMan BizPlan v1.0<br>자동차 재제조 전문 관리</div>', unsafe_allow_html=True)
 
 
 # ─────────────────────────────────────────
@@ -350,7 +338,7 @@ elif st.session_state.view == "edit":
     data = st.session_state.form_data
 
     st.markdown(f'<div class="section-header">{sec_label}</div>', unsafe_allow_html=True)
-    st.markdown('<div style="color:#666;font-size:12px;margin-bottom:20px;">각 항목을 입력하세요. 입력 후 저장 버튼을 누르세요.</div>', unsafe_allow_html=True)
+    st.markdown('<div style="color:#94a3b8;font-size:12px;margin-bottom:20px;">각 항목을 입력하세요. 입력 후 저장 버튼을 누르세요.</div>', unsafe_allow_html=True)
 
     updated = {}
     for field, label in fields.items():
@@ -432,13 +420,13 @@ elif st.session_state.view == "preview":
 
     # 표지
     st.markdown(f"""
-    <div style="background:linear-gradient(135deg,#1a1200,#2a2000);border:2px solid #e8a020;
-                border-radius:16px;padding:40px;text-align:center;margin-bottom:28px;">
-        <div style="font-size:12px;color:#e8a020;letter-spacing:0.2em;margin-bottom:8px;">BUSINESS PLAN</div>
-        <h1 style="color:#f5c842;font-size:28px;margin:0 0 8px;font-weight:900;">{company}</h1>
-        <div style="color:#888;font-size:13px;">자동차 부품 재제조 사업계획서</div>
-        {"<div style='color:#ccc;font-size:13px;margin-top:8px;'>대표자: " + ceo + "</div>" if ceo else ""}
-        <div style="color:#555;font-size:11px;margin-top:12px;">{now_str} 기준</div>
+    <div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);border-radius:16px;
+                padding:40px;text-align:center;margin-bottom:28px;box-shadow:0 4px 20px rgba(37,99,235,0.2);">
+        <div style="font-size:12px;color:rgba(255,255,255,0.7);letter-spacing:0.2em;margin-bottom:8px;">BUSINESS PLAN</div>
+        <h1 style="color:#ffffff;font-size:28px;margin:0 0 8px;font-weight:900;">{company}</h1>
+        <div style="color:rgba(255,255,255,0.75);font-size:13px;">자동차 부품 재제조 사업계획서</div>
+        {"<div style='color:rgba(255,255,255,0.9);font-size:13px;margin-top:8px;'>대표자: " + ceo + "</div>" if ceo else ""}
+        <div style="color:rgba(255,255,255,0.5);font-size:11px;margin-top:12px;">{now_str} 기준</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -462,4 +450,4 @@ elif st.session_state.view == "preview":
         st.markdown("")
 
     st.markdown("---")
-    st.markdown(f'<div style="text-align:center;color:#444;font-size:11px;">ReMan BizPlan · 자동차 재제조 사업계획서 관리 시스템</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="text-align:center;color:#94a3b8;font-size:11px;">ReMan BizPlan · 자동차 재제조 사업계획서 관리 시스템</div>', unsafe_allow_html=True)
